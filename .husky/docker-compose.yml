@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  katelyatv:
+    image: ghcr.io/katelya77/katelyatv:latest
+    ports:
+      - "3000:3000"
+    environment:
+      # 登录账号密码
+      USERNAME: ${USERNAME}
+      PASSWORD: ${PASSWORD}
+
+      # 存储设置
+      NEXT_PUBLIC_STORAGE_TYPE: ${NEXT_PUBLIC_STORAGE_TYPE}
+
+      # Kvrocks 连接地址和密码
+      KVROCKS_URL: redis://kvrocks:6666
+      KVROCKS_PASSWORD: ${KVROCKS_PASSWORD}
+      KVROCKS_DATABASE: 0
+
+      # 允许注册
+      NEXT_PUBLIC_ENABLE_REGISTER: ${NEXT_PUBLIC_ENABLE_REGISTER}
+
+      # NextAuth 配置
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+    depends_on:
+      - kvrocks
+    restart: unless-stopped
+    networks:
+      - katelyatv-network
+
+  kvrocks:
+    image: apache/kvrocks:latest
+    ports:
+      - "6666:6666"
+    environment:
+      KVROCKS_BIND: 0.0.0.0
+      KVROCKS_PORT: 6666
+      KVROCKS_DIR: /var/lib/kvrocks/data
+      KVROCKS_LOG_LEVEL: info
+      KVROCKS_REQUIREPASS: ${KVROCKS_PASSWORD}
+    volumes:
+      - kvrocks-data:/var/lib/kvrocks/data
+      # 挂载配置文件，如果没有可以删除这行
+      #- ./docker/kvrocks/kvrocks.conf:/etc/kvrocks/kvrocks.conf:ro
+    restart: unless-stopped
+    networks:
+      - katelyatv-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "-p", "6666", "-a", "${KVROCKS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  katelyatv-network:
+    driver: bridge
+
+volumes:
+  kvrocks-data:
